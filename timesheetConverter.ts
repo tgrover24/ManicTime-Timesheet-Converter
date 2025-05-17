@@ -226,7 +226,7 @@ async function main(workbook: ExcelScript.Workbook) {
     // Column 1: Employee Number (Static)
     rowValues.push(27); 
     // Column 2: Employee Name (Static)
-    rowValues.push("Grover, Tarun"); 
+    rowValues.push("GROVER, TARUN"); 
     // Column 3: Date (Convert JS Date to Excel serial number)
     rowValues.push((currentEntryDate.getTime() / 86400000) + 25569);
     // Column 4: Project (from unpivoted data)
@@ -398,7 +398,7 @@ async function main(workbook: ExcelScript.Workbook) {
     timesheetTable = null; 
   }
 
-  // --- Phase 3: Apply Formulas and Post-Processing to the Table ---
+  // --- Apply Formulas and Post-Processing to the Table ---
   // Apply formulas only if the table was created and has data rows
   if (timesheetTable && timesheetTable.getRowCount() > 0) { 
     const tableActualDataStartCell = outputTableStartRange.getOffsetRange(1, 0);
@@ -417,7 +417,7 @@ async function main(workbook: ExcelScript.Workbook) {
     if (taskDescCol && numDataRows > 0) { 
       const columnTargetRange = tableActualDataStartCell.getOffsetRange(0, taskDescCol.getIndex()).getResizedRange(numDataRows - 1, 0); 
       if (taskCodesTable) { 
-        const taskDescFormula = `=IFERROR(XLOOKUP([@Task],INDIRECT("${actualTaskCodesTableName}["&[@Project]&"] Codes]"),INDIRECT("${actualTaskCodesTableName}["&[@Project]&"] Desc]"),"FIXXX",0),"")`;
+        const taskDescFormula = `=IFERROR(XLOOKUP([@Task],INDIRECT("${actualTaskCodesTableName}["&[@Project]&" Codes]"),INDIRECT("${actualTaskCodesTableName}["&[@Project]&" Desc]"),"FIXXX",0),"")`;
         columnTargetRange.setFormula(taskDescFormula);
       } else {
         console.log("TaskCodes table not found, setting error message for Task Description column.");
@@ -480,11 +480,109 @@ async function main(workbook: ExcelScript.Workbook) {
     } else {
       console.log("Could not find Date, Total Days, or Hours column, or no data rows, for Total Days formula.");
     }
-  }
 
-  // Autofit columns for better readability
-  if (timesheetTable) {
-    timesheetTable.getRange().getFormat().autofitColumns();
+    // --- Add Data Validation to Task Column (This block should be within the main if condition too) ---
+    const taskCol = timesheetTable.getColumnByName("Task");
+    const projectColForValidation = timesheetTable.getColumnByName("Project"); // Renamed to avoid conflict
+    if (taskCol && projectColForValidation && numDataRows > 0) {
+      const taskColumnDataRange = tableActualDataStartCell.getOffsetRange(0, taskCol.getIndex()).getResizedRange(numDataRows - 1, 0);
+      const dataValidationFormula = "=OFFSET(LOOKUPS!$N$2,1,MATCH(E5&\" Codes\",LOOKUPS!$N$2:$EF$2,0)-1, COUNTA(OFFSET(LOOKUPS!$N$2,1,MATCH(E5&\" Codes\",LOOKUPS!$N$2:$EF$2,0)-1,33)), 1)";
+      const dv = taskColumnDataRange.getDataValidation();
+      dv.setRule({ list: { source: dataValidationFormula, inCellDropDown: true } });
+      dv.setPrompt({ showPrompt: false, message: "", title: "" });
+      dv.setErrorAlert({ showAlert: true, style: ExcelScript.DataValidationAlertStyle.stop, message: "Please select a valid task from the list for the selected project. If the list is empty, the project may not have associated tasks defined in the LOOKUPS sheet.", title: "Invalid Task" });
+      dv.setIgnoreBlanks(true);
+      console.log(`Applied dynamic list data validation to 'Task' column (range: ${taskColumnDataRange.getAddress()}) using formula: ${dataValidationFormula}`);
+    } else {
+      console.log("Could not find 'Task' or 'Project' column, or no data rows, for applying data validation.");
+    }
+
+    // --- Apply Table Styling and Formatting ---
+    console.log("Applying table style and basic formatting...");
+    timesheetTable.setPredefinedTableStyle("TableStyleLight1");
+    timesheetTable.setShowFilterButton(false);
+    timesheetTable.setShowBandedRows(false);
+    timesheetTable.setShowBandedColumns(false);
+
+    // --- Set Column Widths (copied from "April 2025" sheet) ---
+    console.log("Attempting to set column widths based on 'April 2025' sheet...");
+    const sourceSheetNameForWidths = "April 2025";
+    const sourceWidthSheet = workbook.getWorksheet(sourceSheetNameForWidths);
+
+    if (sourceWidthSheet) {
+      // Columns B to U correspond to 0-indexed 1 to 20
+      // Office Scripts getColumn is 0-indexed for number, or use string like "B"
+      for (let i = 0; i < 20; i++) { // Loop for 20 columns (B to U)
+        const targetColumnIndex = 1 + i; // Sheet column index (1 for B, 2 for C, ..., 20 for U)
+        try {
+          // Use getCell(0, columnIndex) to get a cell in the column, then get/set its column width
+          const sourceColumnWidth = sourceWidthSheet.getCell(0, targetColumnIndex).getFormat().getColumnWidth();
+          outputSheet.getCell(0, targetColumnIndex).getFormat().setColumnWidth(sourceColumnWidth);
+        } catch (e) {
+          console.log(`Error setting width for column index ${targetColumnIndex}: ${e.message}`);
+          // It's possible a column doesn't exist or another error occurs
+        }
+      }
+      console.log("Finished applying column widths from 'April 2025' sheet.");
+    } else {
+      console.log(`Warning: Source sheet '${sourceSheetNameForWidths}' not found. Column widths not set from source.`);
+    }
+
+    // --- Apply Conditional Formatting and Specific Column Formatting ---
+    console.log("Applying conditional formatting and Hour Total column color...");
+    // Conditional formatting for first 18 columns based on [Column1]
+    const first18ColsDataBodyRange = tableActualDataStartCell.getResizedRange(numDataRows - 1, 17); // 0 to 17 is 18 columns
+
+    // Conditional formatting for Date column (weekends) - MOVED UP
+    const dateColForWeekendFormatting = timesheetTable.getColumnByName("Date");
+    if (dateColForWeekendFormatting && numDataRows > 0) {
+      const dateColumnDataRange = tableActualDataStartCell.getOffsetRange(0, dateColForWeekendFormatting.getIndex()).getResizedRange(numDataRows - 1, 0);
+      const cfWeekend = dateColumnDataRange.addConditionalFormat(ExcelScript.ConditionalFormatType.custom).getCustom();
+      // WEEKDAY(cell, 2) returns 6 for Saturday and 7 for Sunday.
+      const firstCellAddressInDateColumn = tableActualDataStartCell.getCell(0, dateColForWeekendFormatting.getIndex()).getAddress().split("!")[1];
+      cfWeekend.getRule().setFormula(`=WEEKDAY(${firstCellAddressInDateColumn}, 2) > 5`);
+      cfWeekend.getFormat().getFill().setColor("#AEAAAA"); // Grey color for weekends
+      cfWeekend.getFormat().getFont().setColor("black");
+      console.log(`Applied conditional formatting for weekends to 'Date' column (range: ${dateColumnDataRange.getAddress()}).`);
+    } else {
+      console.log("Could not find 'Date' column or no data rows for weekend conditional formatting.");
+    }
+
+    const cfTrue = first18ColsDataBodyRange.addConditionalFormat(ExcelScript.ConditionalFormatType.custom).getCustom();
+    cfTrue.getRule().setFormula(`=$U5 = TRUE`);
+    cfTrue.getFormat().getFill().setColor("#F8CBAD");
+    cfTrue.getFormat().getFont().setColor("black");
+  
+    const cfFalse = first18ColsDataBodyRange.addConditionalFormat(ExcelScript.ConditionalFormatType.custom).getCustom();
+    cfFalse.getRule().setFormula(`=$U5 = FALSE`);
+    cfFalse.getFormat().getFill().setColor("#B4C6E7");
+    cfFalse.getFormat().getFont().setColor("black");
+
+    const hourTotalColIndex = headers.indexOf("Hour Total");
+    if (hourTotalColIndex !== -1) {
+      const hourTotalColDataRange = tableActualDataStartCell.getOffsetRange(0, hourTotalColIndex).getResizedRange(numDataRows - 1, 0);
+      hourTotalColDataRange.getFormat().getFill().setColor("#5B9BD5");
+      hourTotalColDataRange.getFormat().getFont().setColor("black");
+    }
+
+    // --- Set Specific Header Background Colors ---
+    console.log("Setting specific header background colors...");
+    const headerRowRange = timesheetTable.getHeaderRowRange();
+    const greenHeaders = [
+      "Project", "Project Description", "Task Description", "Job Code Description", "Period"
+    ];
+    const greenColor = "#92D050";
+    const whiteColor = "#FFFFFF";
+
+    for (let colIndex = 0; colIndex < headers.length; colIndex++) {
+      const headerName = headers[colIndex];
+      const cellToFormat = headerRowRange.getCell(0, colIndex);
+      if (greenHeaders.includes(headerName)) {
+        cellToFormat.getFormat().getFill().setColor(greenColor);
+      } else {
+        cellToFormat.getFormat().getFill().setColor(whiteColor);
+      }
+    }
   }
 
   console.log("Timesheet conversion script finished.");

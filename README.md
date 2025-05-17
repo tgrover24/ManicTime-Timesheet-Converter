@@ -18,6 +18,8 @@ This Excel Office Script automates the process of converting a ManicTime data ex
 -   **Formatting**:
     -   Applies date and number formatting to relevant columns.
     -   Autofits columns for readability.
+    -   Applies conditional formatting to rows based on an alternating day pattern (using helper column `Column1`) for visual grouping.
+    -   Highlights weekend dates (Saturday, Sunday) in the "Date" column with a distinct background color.
 -   **Robust Error Handling & Logging**: Includes console logs for script progress, warnings, and errors.
 
 ## Prerequisites
