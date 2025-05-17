@@ -1,0 +1,45 @@
+# Node.js
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+
+# TypeScript
+*.js
+*.js.map
+*.d.ts
+
+# Office Scripts / Excel specific (if any temporary files are generated locally)
+~$*.xlsx
+*.xlsb
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+logs
+*.log
+
+# Build output
+dist/
+build/
+out/
+
+# Environment variables
+.env
+.env.*
+!.env.example 
+
+# Custom Ignores / Project Specific
+.cursor/ 
