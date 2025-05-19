@@ -166,11 +166,15 @@ async function main(workbook: ExcelScript.Workbook) {
     const existingTables = outputSheet.getTables();
     // Iterate and delete each table
     existingTables.forEach(table => {
+      let tableNameForLogging = "UNKNOWN_TABLE"; // Default in case getName fails or table is already invalid
       try {
-        table.delete();
-        console.log(`Deleted existing table '${table.getName()}' from sheet '${outputSheetName}'.`);
+        tableNameForLogging = table.getName(); // Get name FIRST
+        console.log(`Attempting to delete existing table '${tableNameForLogging}' from sheet '${outputSheetName}'.`);
+        table.delete(); // THEN delete
+        console.log(`Successfully deleted table '${tableNameForLogging}'.`);
       } catch (e) {
-        console.log(`Could not delete table '${table.getName()}': ${e.message}`);
+        // This will log the error with the table name if getName succeeded, or UNKNOWN_TABLE if getName failed.
+        console.log(`Error during processing/deletion of table '${tableNameForLogging}': ${e.message}`);
       }
     });
     outputSheet.getRange().clear(ExcelScript.ClearApplyTo.all); 
@@ -179,6 +183,43 @@ async function main(workbook: ExcelScript.Workbook) {
     console.log(`Created new output sheet: ${outputSheetName}`);
   }
   outputSheet.activate();
+
+  const lookupsSheet = workbook.getWorksheet(lookupsSheetName);
+  if (!lookupsSheet) {
+    console.log(`Lookup sheet '${lookupsSheetName}' not found. Cannot proceed with lookups.`);
+    return;
+  }
+
+  // Move the output sheet to immediately before the LOOKUPS sheet
+  if (outputSheet) {
+    try {
+      outputSheet.move(lookupsSheet, "Before");
+      console.log(`Moved output sheet '${outputSheetName}' before LOOKUPS sheet.`);
+    } catch (e) {
+      console.log(`Error moving output sheet before LOOKUPS: ${e.message}`);
+    }
+  }
+
+  // --- Copy A1 format and column width from 'April 2025' sheet ---
+  const sourceSheetNameForA1 = "April 2025";
+  const sourceSheetForA1 = workbook.getWorksheet(sourceSheetNameForA1);
+  if (sourceSheetForA1) {
+    try {
+      // Copy format
+      const sourceA1 = sourceSheetForA1.getRange("A1");
+      const targetA1 = outputSheet.getRange("A1");
+      targetA1.copyFrom(sourceA1, ExcelScript.RangeCopyType.formats);
+      // Copy column width
+      const sourceAColWidth = sourceSheetForA1.getCell(0, 0).getFormat().getColumnWidth();
+      outputSheet.getCell(0, 0).getFormat().setColumnWidth(sourceAColWidth);
+      console.log(`Copied A1 format and column width from '${sourceSheetNameForA1}' to output sheet.`);
+    } catch (e) {
+      console.log(`Error copying A1 format/width from '${sourceSheetNameForA1}': ${e.message}`);
+    }
+  } else {
+    console.log(`Source sheet '${sourceSheetNameForA1}' not found for copying A1 format/width.`);
+  }
+
   outputSheet.getRange("A1").setValue(`${monthNames[firstMonthDate.getUTCMonth()]} ${firstMonthDate.getUTCFullYear()}`);
 
   // Define headers for the output table
@@ -196,12 +237,6 @@ async function main(workbook: ExcelScript.Workbook) {
   headerRange.getFormat().getFont().setBold(true);
 
   // Get lookup tables from the "LOOKUPS" sheet
-  const lookupsSheet = workbook.getWorksheet(lookupsSheetName);
-  if (!lookupsSheet) {
-    console.log(`Lookup sheet '${lookupsSheetName}' not found. Cannot proceed with lookups.`);
-    return;
-  }
-
   const projectLookupTable = lookupsSheet.getTable(projectLookupTableName);
   const taskCodesTable = lookupsSheet.getTable(taskCodesTableName);
   const jobCodesTable = lookupsSheet.getTable(jobCodesTableName);

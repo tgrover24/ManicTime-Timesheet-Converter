@@ -20,6 +20,7 @@ This Excel Office Script automates the process of converting a ManicTime data ex
     -   Autofits columns for readability.
     -   Applies conditional formatting to rows based on an alternating day pattern (using helper column `Column1`) for visual grouping.
     -   Highlights weekend dates (Saturday, Sunday) in the "Date" column with a distinct background color.
+    -   **Output sheet is always moved to immediately precede the LOOKUPS sheet, regardless of its original position.** Robust logic ensures correct placement and logs before/after positions for easier debugging.
 -   **Robust Error Handling & Logging**: Includes console logs for script progress, warnings, and errors.
 
 ## Prerequisites
