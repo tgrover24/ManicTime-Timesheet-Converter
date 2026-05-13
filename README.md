@@ -13,7 +13,7 @@ This Excel Office Script automates the process of converting a ManicTime data ex
 -   **Advanced Formulas**:
     -   XLOOKUP formulas for Project Descriptions, Task Descriptions, and Job Code Descriptions from the "LOOKUPS" sheet.
     -   Dynamic task lookups based on project numbers with special handling for project 992024.
-    -   Job code assignment logic (ADM for 992024, ENC as default, Tag 3 lookup for others).
+    -   Job code assignment logic (ADM for 992024, REG as default, Tag 3 lookup for others).
     -   Daily hour totals and cumulative monthly totals calculations.
     -   Helper column for conditional formatting (alternating day pattern).
 -   **Data Validation**: Dynamic dropdown lists for Task column based on selected project, with comprehensive error messaging.

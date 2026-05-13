@@ -493,7 +493,7 @@ async function main(workbook: ExcelScript.Workbook) {
       const jobCodeCol = timesheetTable.getColumnByName("Job Code");
       if (jobCodeCol && numDataRows > 0) {
         const columnTargetRange = tableActualDataStartCell.getOffsetRange(0, jobCodeCol.getIndex()).getResizedRange(numDataRows - 1, 0);
-        const formulaString = `=IF([@Project]=992024,"ADM",IF([@[Tag 3]]<>"",XLOOKUP([@[Tag 3]],Tag3Lookup[Tag 3],Tag3Lookup[Job Code],"ENC"),"ENC"))`;
+        const formulaString = `=IF([@Project]=992024,"ADM",IF([@[Tag 3]]<>"",XLOOKUP([@[Tag 3]],Tag3Lookup[Tag 3],Tag3Lookup[Job Code],"REG"),"REG"))`;
         columnTargetRange.setFormula(formulaString);
       }
   
@@ -580,6 +580,19 @@ async function main(workbook: ExcelScript.Workbook) {
         console.log(`Applied conditional formatting for weekends to 'Date' column (range: ${dateColumnDataRange.getAddress()}).`);
       } else {
         console.log("Could not find 'Date' column or no data rows for weekend conditional formatting.");
+      }
+  
+      // Conditional formatting for Project Description when XLOOKUP returns "Project Not Found"
+      const projectDescColForCf = timesheetTable.getColumnByName("Project Description");
+      if (projectDescColForCf && numDataRows > 0) {
+        const projectDescColumnDataRange = tableActualDataStartCell.getOffsetRange(0, projectDescColForCf.getIndex()).getResizedRange(numDataRows - 1, 0);
+        const cfProjectNotFound = projectDescColumnDataRange.addConditionalFormat(ExcelScript.ConditionalFormatType.custom).getCustom();
+        cfProjectNotFound.getRule().setFormula(`=INDIRECT(ADDRESS(ROW(),COLUMN()))="Project Not Found"`);
+        cfProjectNotFound.getFormat().getFill().setColor("#FFC7CE");
+        cfProjectNotFound.getFormat().getFont().setColor("black");
+        console.log(`Applied conditional formatting for 'Project Not Found' to 'Project Description' column (range: ${projectDescColumnDataRange.getAddress()}).`);
+      } else {
+        console.log("Could not find 'Project Description' column or no data rows for Project Not Found conditional formatting.");
       }
   
       const cfTrue = conditionalFormattingRange.addConditionalFormat(ExcelScript.ConditionalFormatType.custom).getCustom();
